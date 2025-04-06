@@ -1,6 +1,6 @@
 diff -urN a/Makefile b/Makefile
 --- a/Makefile	2024-02-29 20:07:33.000000000 -0600
-+++ b/Makefile	2025-03-29 23:06:06.907174603 -0500
++++ b/Makefile	2025-04-06 09:41:32.274250571 -0500
 @@ -23,6 +23,7 @@
  ARCH_GLOBS = $(addsuffix /$(ARCH)/*.[csS],$(SRC_DIRS))
  BASE_SRCS = $(sort $(wildcard $(BASE_GLOBS)))
@@ -71,9 +71,44 @@ diff -urN a/Makefile b/Makefile
  	rm -f $@
  	$(AR) rc $@ $(AOBJS)
  	$(RANLIB) $@
+diff -urN a/README.md b/README.md
+--- a/README.md	1969-12-31 18:00:00.000000000 -0600
++++ b/README.md	2025-04-06 09:41:32.274384107 -0500
+@@ -0,0 +1,31 @@
++# musl-mimalloc
++
++This repository hosts a patched version of the musl library that takes adventage of the mimalloc allocator.
++
++musl-mimalloc allows us to compile the world's fastest and most performant binaries in the Linux space.
++
++### 1. Clone the repository
++
++```bash
++$ git clone https://github.com/OneCoreOSS/musl-mimalloc
++$ cd musl-mimalloc
++```
++
++### 2. Compile musl
++
++```bash
++$ ./configure --with-malloc=external
++$ EXTRA_OBJ=$PWD/src/malloc/external/mimalloc.o make
++```
++
++Once completed, you should now have functional copy of musl-mimalloc in lib/libc.so.
++
++You can now install musl on your host and use it for your own projects.
++
++### Credits
++
++[musl libc](https://musl.libc.org/)
++
++[mimalloc](https://github.com/microsoft/mimalloc/)
++
++[Chimera Linux](https://github.com/chimera-linux/cports/tree/master/main/musl/) - provided all of the patches to make this work !
 diff -urN a/arch/loongarch64/reloc.h b/arch/loongarch64/reloc.h
 --- a/arch/loongarch64/reloc.h	2024-02-29 20:07:33.000000000 -0600
-+++ b/arch/loongarch64/reloc.h	2025-03-29 22:27:21.593267972 -0500
++++ b/arch/loongarch64/reloc.h	2025-04-06 09:41:32.293255919 -0500
 @@ -17,6 +17,7 @@
  #define REL_TPOFF       R_LARCH_TLS_TPREL64
  #define REL_RELATIVE    R_LARCH_RELATIVE
@@ -84,7 +119,7 @@ diff -urN a/arch/loongarch64/reloc.h b/arch/loongarch64/reloc.h
  	"move $sp, %1 ; jr %0" : : "r"(pc), "r"(sp) : "memory" )
 diff -urN a/arch/powerpc64/bits/signal.h b/arch/powerpc64/bits/signal.h
 --- a/arch/powerpc64/bits/signal.h	2024-02-29 20:07:33.000000000 -0600
-+++ b/arch/powerpc64/bits/signal.h	2025-03-29 22:27:21.603267917 -0500
++++ b/arch/powerpc64/bits/signal.h	2025-04-06 09:41:32.314806144 -0500
 @@ -2,8 +2,8 @@
   || defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
  
@@ -98,7 +133,7 @@ diff -urN a/arch/powerpc64/bits/signal.h b/arch/powerpc64/bits/signal.h
  #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
 diff -urN a/arch/riscv64/bits/syscall.h.in b/arch/riscv64/bits/syscall.h.in
 --- a/arch/riscv64/bits/syscall.h.in	2024-02-29 20:07:33.000000000 -0600
-+++ b/arch/riscv64/bits/syscall.h.in	2025-03-29 22:27:21.606601232 -0500
++++ b/arch/riscv64/bits/syscall.h.in	2025-04-06 09:41:32.320619523 -0500
 @@ -307,3 +307,4 @@
  
  #define __NR_sysriscv __NR_arch_specific_syscall
@@ -106,7 +141,7 @@ diff -urN a/arch/riscv64/bits/syscall.h.in b/arch/riscv64/bits/syscall.h.in
 +#define __NR_riscv_hwprobe (__NR_sysriscv + 14)
 diff -urN a/configure b/configure
 --- a/configure	2024-02-29 20:07:33.000000000 -0600
-+++ b/configure	2025-03-29 22:27:21.613267862 -0500
++++ b/configure	2025-04-06 09:41:32.341824103 -0500
 @@ -615,12 +615,7 @@
  tryldflag LDFLAGS_AUTO -Wl,--dynamic-list="$srcdir/dynamic.list"
  
@@ -123,7 +158,7 @@ diff -urN a/configure b/configure
  # Figure out arch variants for archs with variants
 diff -urN a/include/elf.h b/include/elf.h
 --- a/include/elf.h	2024-02-29 20:07:33.000000000 -0600
-+++ b/include/elf.h	2025-03-29 22:27:21.616601177 -0500
++++ b/include/elf.h	2025-04-06 09:41:32.345774396 -0500
 @@ -3329,6 +3329,7 @@
  #define R_LARCH_TLS_TPREL32                 10
  #define R_LARCH_TLS_TPREL64                 11
@@ -134,7 +169,7 @@ diff -urN a/include/elf.h b/include/elf.h
  #define R_LARCH_SOP_PUSH_PCREL              22
 diff -urN a/ldso/dynlink.c b/ldso/dynlink.c
 --- a/ldso/dynlink.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/ldso/dynlink.c	2025-03-29 22:27:21.626601123 -0500
++++ b/ldso/dynlink.c	2025-04-06 09:41:32.369022741 -0500
 @@ -1494,6 +1494,7 @@
  			fpaddr(p, dyn[DT_FINI])();
  #endif
@@ -169,7 +204,7 @@ diff -urN a/ldso/dynlink.c b/ldso/dynlink.c
  		pthread_t self = __pthread_self();
 diff -urN a/mimalloc/include/mimalloc/atomic.h b/mimalloc/include/mimalloc/atomic.h
 --- a/mimalloc/include/mimalloc/atomic.h	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/include/mimalloc/atomic.h	2025-03-29 23:05:57.390560158 -0500
++++ b/mimalloc/include/mimalloc/atomic.h	2025-04-06 09:41:32.435451017 -0500
 @@ -477,7 +477,7 @@
  
  #elif defined(MI_USE_PTHREADS)
@@ -181,7 +216,7 @@ diff -urN a/mimalloc/include/mimalloc/atomic.h b/mimalloc/include/mimalloc/atomi
  
 diff -urN a/mimalloc/include/mimalloc/internal.h b/mimalloc/include/mimalloc/internal.h
 --- a/mimalloc/include/mimalloc/internal.h	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/include/mimalloc/internal.h	2025-03-29 23:05:57.390560158 -0500
++++ b/mimalloc/include/mimalloc/internal.h	2025-04-06 09:41:32.434871404 -0500
 @@ -14,6 +14,12 @@
  // functions and macros.
  // --------------------------------------------------------------------------
@@ -560,18 +595,35 @@ diff -urN a/mimalloc/include/mimalloc/internal.h b/mimalloc/include/mimalloc/int
    const size_t count = mi_atomic_load_relaxed(&_mi_numa_node_count);
    if mi_likely(count > 0) { return count; }
    else return _mi_os_numa_node_count_get();
-@@ -1031,7 +1037,7 @@
+@@ -1031,16 +1037,22 @@
    return (x==0 ? MI_SIZE_BITS : MI_SIZE_BITS - 1 - mi_clz(x));
  }
  
 -size_t _mi_popcount_generic(size_t x);
 +mi_decl_internal size_t _mi_popcount_generic(size_t x);
++
  
  static inline size_t mi_popcount(size_t x) {
    if (x<=1) return x;
+   if (x==SIZE_MAX) return MI_SIZE_BITS;
+   #if defined(__GNUC__)
+     #if (SIZE_MAX == ULONG_MAX)
+-      return __builtin_popcountl(x);
++      x -= (x >> 1) & 0x55555555;
++      x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
++      return ((x + (x >> 4) & 0x0F0F0F0F) * 0x01010101) >> 24;
+     #else
+-      return __builtin_popcountll(x);
++      x -= (x >> 1) & 0x5555555555555555;
++      x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
++      x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F;
++      return (x * 0x0101010101010101) >> 56;
+     #endif
+   #else
+     return _mi_popcount_generic(x);
 diff -urN a/mimalloc/include/mimalloc/prim.h b/mimalloc/include/mimalloc/prim.h
 --- a/mimalloc/include/mimalloc/prim.h	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/include/mimalloc/prim.h	2025-03-29 23:05:57.390560158 -0500
++++ b/mimalloc/include/mimalloc/prim.h	2025-04-06 09:41:32.435027499 -0500
 @@ -8,6 +8,12 @@
  #ifndef MIMALLOC_PRIM_H
  #define MIMALLOC_PRIM_H
@@ -742,7 +794,7 @@ diff -urN a/mimalloc/include/mimalloc/prim.h b/mimalloc/include/mimalloc/prim.h
  static inline mi_heap_t* mi_prim_get_default_heap(void) {
 diff -urN a/mimalloc/include/mimalloc/types.h b/mimalloc/include/mimalloc/types.h
 --- a/mimalloc/include/mimalloc/types.h	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/include/mimalloc/types.h	2025-03-29 23:05:57.390560158 -0500
++++ b/mimalloc/include/mimalloc/types.h	2025-04-06 09:41:32.435142947 -0500
 @@ -681,11 +681,11 @@
  #endif
  
@@ -761,7 +813,7 @@ diff -urN a/mimalloc/include/mimalloc/types.h b/mimalloc/include/mimalloc/types.
  #define mi_stat_increase(stat,amount)         _mi_stat_increase( &(stat), amount)
 diff -urN a/mimalloc/include/mimalloc.h b/mimalloc/include/mimalloc.h
 --- a/mimalloc/include/mimalloc.h	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/include/mimalloc.h	2025-03-29 23:05:57.390560158 -0500
++++ b/mimalloc/include/mimalloc.h	2025-04-06 09:41:32.435712851 -0500
 @@ -60,7 +60,9 @@
    #define mi_attr_alloc_size2(s1,s2)
    #define mi_attr_alloc_align(p)
@@ -775,7 +827,7 @@ diff -urN a/mimalloc/include/mimalloc.h b/mimalloc/include/mimalloc.h
      #define mi_decl_export
 diff -urN a/mimalloc/src/alloc-aligned.c b/mimalloc/src/alloc-aligned.c
 --- a/mimalloc/src/alloc-aligned.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/alloc-aligned.c	2025-03-29 23:05:57.390560158 -0500
++++ b/mimalloc/src/alloc-aligned.c	2025-04-06 09:41:32.374444869 -0500
 @@ -68,6 +68,7 @@
  #if MI_DEBUG > 0
        _mi_error_message(EOVERFLOW, "aligned allocation with a very large alignment cannot be used with an alignment offset (size %zu, alignment %zu, offset %zu)\n", size, alignment, offset);
@@ -802,7 +854,7 @@ diff -urN a/mimalloc/src/alloc-aligned.c b/mimalloc/src/alloc-aligned.c
  
 diff -urN a/mimalloc/src/alloc.c b/mimalloc/src/alloc.c
 --- a/mimalloc/src/alloc.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/alloc.c	2025-03-29 23:05:57.393893473 -0500
++++ b/mimalloc/src/alloc.c	2025-04-06 09:41:32.374565764 -0500
 @@ -221,7 +221,7 @@
  
  mi_decl_nodiscard extern inline mi_decl_restrict void* mi_heap_calloc(mi_heap_t* heap, size_t count, size_t size) mi_attr_noexcept {
@@ -823,7 +875,7 @@ diff -urN a/mimalloc/src/alloc.c b/mimalloc/src/alloc.c
  }
 diff -urN a/mimalloc/src/arena-abandon.c b/mimalloc/src/arena-abandon.c
 --- a/mimalloc/src/arena-abandon.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/arena-abandon.c	2025-03-29 23:05:57.393893473 -0500
++++ b/mimalloc/src/arena-abandon.c	2025-04-06 09:41:32.374870482 -0500
 @@ -14,11 +14,11 @@
  #endif
  
@@ -843,7 +895,7 @@ diff -urN a/mimalloc/src/arena-abandon.c b/mimalloc/src/arena-abandon.c
    Abandoned blocks/segments:
 diff -urN a/mimalloc/src/arena.c b/mimalloc/src/arena.c
 --- a/mimalloc/src/arena.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/arena.c	2025-03-29 23:05:57.393893473 -0500
++++ b/mimalloc/src/arena.c	2025-04-06 09:41:32.375032653 -0500
 @@ -99,7 +99,7 @@
    }
  }
@@ -855,7 +907,7 @@ diff -urN a/mimalloc/src/arena.c b/mimalloc/src/arena.c
  
 diff -urN a/mimalloc/src/bitmap.h b/mimalloc/src/bitmap.h
 --- a/mimalloc/src/bitmap.h	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/bitmap.h	2025-03-29 23:05:57.393893473 -0500
++++ b/mimalloc/src/bitmap.h	2025-04-06 09:41:32.375219409 -0500
 @@ -70,30 +70,30 @@
  
  // Try to atomically claim a sequence of `count` bits in a single
@@ -920,7 +972,7 @@ diff -urN a/mimalloc/src/bitmap.h b/mimalloc/src/bitmap.h
  #endif
 diff -urN a/mimalloc/src/init.c b/mimalloc/src/init.c
 --- a/mimalloc/src/init.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/init.c	2025-03-29 23:05:57.397226788 -0500
++++ b/mimalloc/src/init.c	2025-04-06 09:41:32.375457638 -0500
 @@ -13,6 +13,11 @@
  
  
@@ -980,7 +1032,7 @@ diff -urN a/mimalloc/src/init.c b/mimalloc/src/init.c
    #endif
 diff -urN a/mimalloc/src/mimalloc.c b/mimalloc/src/mimalloc.c
 --- a/mimalloc/src/mimalloc.c	1969-12-31 18:00:00.000000000 -0600
-+++ b/mimalloc/src/mimalloc.c	2025-03-29 23:05:57.400560103 -0500
++++ b/mimalloc/src/mimalloc.c	2025-04-06 09:41:32.375957072 -0500
 @@ -0,0 +1,115 @@
 +/* The Chimera Linux unified mimalloc configuration. */
 +
@@ -1099,8 +1151,17 @@ diff -urN a/mimalloc/src/mimalloc.c b/mimalloc/src/mimalloc.c
 +}
 diff -urN a/mimalloc/src/options.c b/mimalloc/src/options.c
 --- a/mimalloc/src/options.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/options.c	2025-03-29 23:05:57.397226788 -0500
-@@ -68,9 +68,9 @@
++++ b/mimalloc/src/options.c	2025-04-06 09:41:32.377346984 -0500
+@@ -12,8 +12,6 @@
+ #include <stdio.h>      // stdin/stdout
+ #include <stdlib.h>     // abort
+ 
+-
+-
+ static long mi_max_error_count   = 16; // stop outputting errors after this (use < 0 for no limit)
+ static long mi_max_warning_count = 16; // stop outputting warnings after this (use < 0 for no limit)
+ 
+@@ -68,9 +66,9 @@
  // in KiB
  #ifndef MI_DEFAULT_ARENA_RESERVE
   #if (MI_INTPTR_SIZE>4)
@@ -1112,7 +1173,7 @@ diff -urN a/mimalloc/src/options.c b/mimalloc/src/options.c
   #endif
  #endif
  
-@@ -403,6 +403,7 @@
+@@ -403,6 +401,7 @@
  static _Atomic(size_t) error_count;   // = 0;  // when >= max_error_count stop emitting errors
  static _Atomic(size_t) warning_count; // = 0;  // when >= max_warning_count stop emitting warnings
  
@@ -1120,7 +1181,7 @@ diff -urN a/mimalloc/src/options.c b/mimalloc/src/options.c
  // When overriding malloc, we may recurse into mi_vfprintf if an allocation
  // inside the C runtime causes another message.
  // In some cases (like on macOS) the loader already allocates which
-@@ -424,6 +425,14 @@
+@@ -424,6 +423,14 @@
    recurse = false;
  }
  
@@ -1137,7 +1198,7 @@ diff -urN a/mimalloc/src/options.c b/mimalloc/src/options.c
    if (_mi_preloading()) return false;
 diff -urN a/mimalloc/src/os.c b/mimalloc/src/os.c
 --- a/mimalloc/src/os.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/os.c	2025-03-29 23:05:57.397226788 -0500
++++ b/mimalloc/src/os.c	2025-04-06 09:41:32.376121269 -0500
 @@ -684,7 +684,10 @@
  Support NUMA aware allocation
  -----------------------------------------------------------------------------*/
@@ -1152,7 +1213,7 @@ diff -urN a/mimalloc/src/os.c b/mimalloc/src/os.c
    size_t count = mi_atomic_load_acquire(&_mi_numa_node_count);
 diff -urN a/mimalloc/src/page.c b/mimalloc/src/page.c
 --- a/mimalloc/src/page.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/page.c	2025-03-29 23:05:57.397226788 -0500
++++ b/mimalloc/src/page.c	2025-04-06 09:41:32.376277504 -0500
 @@ -112,7 +112,7 @@
    return true;
  }
@@ -1180,7 +1241,7 @@ diff -urN a/mimalloc/src/page.c b/mimalloc/src/page.c
  
 diff -urN a/mimalloc/src/prim/unix/prim.c b/mimalloc/src/prim/unix/prim.c
 --- a/mimalloc/src/prim/unix/prim.c	2025-03-28 16:19:07.000000000 -0500
-+++ b/mimalloc/src/prim/unix/prim.c	2025-03-29 23:05:57.397226788 -0500
++++ b/mimalloc/src/prim/unix/prim.c	2025-04-06 09:41:32.378914152 -0500
 @@ -31,7 +31,7 @@
  
  #if defined(__linux__)
@@ -1211,7 +1272,7 @@ diff -urN a/mimalloc/src/prim/unix/prim.c b/mimalloc/src/prim/unix/prim.c
  // (and used with MI_TLS_PTHREADS for the default heap)
 diff -urN a/mimalloc-verify-syms.sh b/mimalloc-verify-syms.sh
 --- a/mimalloc-verify-syms.sh	1969-12-31 18:00:00.000000000 -0600
-+++ b/mimalloc-verify-syms.sh	2025-03-29 23:06:20.737098712 -0500
++++ b/mimalloc-verify-syms.sh	2025-04-06 09:41:32.438028439 -0500
 @@ -0,0 +1,18 @@
 +#!/bin/sh
 +
@@ -1233,7 +1294,7 @@ diff -urN a/mimalloc-verify-syms.sh b/mimalloc-verify-syms.sh
 +done
 diff -urN a/src/env/__init_tls.c b/src/env/__init_tls.c
 --- a/src/env/__init_tls.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/env/__init_tls.c	2025-03-29 23:05:57.000562298 -0500
++++ b/src/env/__init_tls.c	2025-04-06 09:41:32.461960671 -0500
 @@ -24,6 +24,7 @@
  	td->robust_list.head = &td->robust_list.head;
  	td->sysinfo = __sysinfo;
@@ -1265,7 +1326,7 @@ diff -urN a/src/env/__init_tls.c b/src/env/__init_tls.c
  weak_alias(static_init_tls, __init_tls);
 diff -urN a/src/exit/exit.c b/src/exit/exit.c
 --- a/src/exit/exit.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/exit/exit.c	2025-03-29 23:05:57.000562298 -0500
++++ b/src/exit/exit.c	2025-04-06 09:41:32.462644347 -0500
 @@ -1,6 +1,7 @@
  #include <stdlib.h>
  #include <stdint.h>
@@ -1284,7 +1345,7 @@ diff -urN a/src/exit/exit.c b/src/exit/exit.c
  weak_alias(libc_exit_fini, __libc_exit_fini);
 diff -urN a/src/internal/pthread_impl.h b/src/internal/pthread_impl.h
 --- a/src/internal/pthread_impl.h	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/internal/pthread_impl.h	2025-03-29 23:05:57.010562243 -0500
++++ b/src/internal/pthread_impl.h	2025-04-06 09:41:32.473976933 -0500
 @@ -6,10 +6,15 @@
  #include <errno.h>
  #include <limits.h>
@@ -1338,7 +1399,7 @@ diff -urN a/src/internal/pthread_impl.h b/src/internal/pthread_impl.h
  #endif
 diff -urN a/src/ldso/loongarch64/tlsdesc.s b/src/ldso/loongarch64/tlsdesc.s
 --- a/src/ldso/loongarch64/tlsdesc.s	1969-12-31 18:00:00.000000000 -0600
-+++ b/src/ldso/loongarch64/tlsdesc.s	2025-03-29 23:05:57.017228873 -0500
++++ b/src/ldso/loongarch64/tlsdesc.s	2025-04-06 09:41:32.484027861 -0500
 @@ -0,0 +1,37 @@
 +.text
 +.global __tlsdesc_static
@@ -1379,7 +1440,7 @@ diff -urN a/src/ldso/loongarch64/tlsdesc.s b/src/ldso/loongarch64/tlsdesc.s
 +	jr $ra
 diff -urN a/src/locale/bind_textdomain_codeset.c b/src/locale/bind_textdomain_codeset.c
 --- a/src/locale/bind_textdomain_codeset.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/locale/bind_textdomain_codeset.c	2025-03-29 23:05:57.033895448 -0500
++++ b/src/locale/bind_textdomain_codeset.c	2025-04-06 09:41:32.508216759 -0500
 @@ -5,7 +5,9 @@
  
  char *bind_textdomain_codeset(const char *domainname, const char *codeset)
@@ -1394,7 +1455,7 @@ diff -urN a/src/locale/bind_textdomain_codeset.c b/src/locale/bind_textdomain_co
  }
 diff -urN a/src/locale/iconv.c b/src/locale/iconv.c
 --- a/src/locale/iconv.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/locale/iconv.c	2025-03-29 23:05:57.033895448 -0500
++++ b/src/locale/iconv.c	2025-04-06 09:41:32.501620180 -0500
 @@ -495,7 +495,7 @@
  			if (c >= 93 || d >= 94) {
  				c += (0xa1-0x81);
@@ -1417,7 +1478,7 @@ diff -urN a/src/locale/iconv.c b/src/locale/iconv.c
  			break;
 diff -urN a/src/locale/locale_map.c b/src/locale/locale_map.c
 --- a/src/locale/locale_map.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/locale/locale_map.c	2025-03-29 23:05:57.037228764 -0500
++++ b/src/locale/locale_map.c	2025-04-06 09:41:32.504281133 -0500
 @@ -64,8 +64,10 @@
  		if (!strcmp(val, p->name)) return p;
  
@@ -1433,7 +1494,7 @@ diff -urN a/src/locale/locale_map.c b/src/locale/locale_map.c
  		l = z - path;
 diff -urN a/src/malloc/calloc.c b/src/malloc/calloc.c
 --- a/src/malloc/calloc.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/malloc/calloc.c	2025-03-29 23:05:57.040562079 -0500
++++ b/src/malloc/calloc.c	2025-04-06 09:41:32.508368385 -0500
 @@ -32,6 +32,10 @@
  
  void *calloc(size_t m, size_t n)
@@ -1447,13 +1508,13 @@ diff -urN a/src/malloc/calloc.c b/src/malloc/calloc.c
  		return 0;
 diff -urN a/src/malloc/external/empty.h b/src/malloc/external/empty.h
 --- a/src/malloc/external/empty.h	1969-12-31 18:00:00.000000000 -0600
-+++ b/src/malloc/external/empty.h	2025-03-29 23:05:57.047228709 -0500
++++ b/src/malloc/external/empty.h	2025-04-06 09:41:32.512032677 -0500
 @@ -0,0 +1 @@
 +/* empty */
 Binary files a/src/malloc/external/mimalloc.o and b/src/malloc/external/mimalloc.o differ
 diff -urN a/src/malloc/libc_calloc.c b/src/malloc/libc_calloc.c
 --- a/src/malloc/libc_calloc.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/malloc/libc_calloc.c	2025-03-29 23:05:57.040562079 -0500
++++ b/src/malloc/libc_calloc.c	2025-04-06 09:41:32.508501083 -0500
 @@ -1,4 +1,8 @@
 +#ifndef LIBC_CALLOC_EXTERNAL
 +
@@ -1465,7 +1526,7 @@ diff -urN a/src/malloc/libc_calloc.c b/src/malloc/libc_calloc.c
 +#endif
 diff -urN a/src/malloc/mallocng/malloc.c b/src/malloc/mallocng/malloc.c
 --- a/src/malloc/mallocng/malloc.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/malloc/mallocng/malloc.c	2025-03-29 23:05:57.043895394 -0500
++++ b/src/malloc/mallocng/malloc.c	2025-04-06 09:41:32.509061280 -0500
 @@ -7,6 +7,8 @@
  
  #include "meta.h"
@@ -1477,7 +1538,7 @@ diff -urN a/src/malloc/mallocng/malloc.c b/src/malloc/mallocng/malloc.c
  const uint16_t size_classes[] = {
 diff -urN a/src/network/res_msend.c b/src/network/res_msend.c
 --- a/src/network/res_msend.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/network/res_msend.c	2025-03-29 23:05:57.170561365 -0500
++++ b/src/network/res_msend.c	2025-04-06 09:41:32.658643839 -0500
 @@ -83,9 +83,9 @@
  	int fd;
  	int timeout, attempts, retry_interval, servfail_retry;
@@ -1490,38 +1551,9 @@ diff -urN a/src/network/res_msend.c b/src/network/res_msend.c
  	socklen_t sl = sizeof sa.sin;
  	int nns = 0;
  	int family = AF_INET;
-diff -urN a/src/string/x86_64/memcpy.s b/src/string/x86_64/memcpy.s
---- a/src/string/x86_64/memcpy.s	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/string/x86_64/memcpy.s	1969-12-31 18:00:00.000000000 -0600
-@@ -1,25 +0,0 @@
--.global memcpy
--.global __memcpy_fwd
--.hidden __memcpy_fwd
--.type memcpy,@function
--memcpy:
--__memcpy_fwd:
--	mov %rdi,%rax
--	cmp $8,%rdx
--	jc 1f
--	test $7,%edi
--	jz 1f
--2:	movsb
--	dec %rdx
--	test $7,%edi
--	jnz 2b
--1:	mov %rdx,%rcx
--	shr $3,%rcx
--	rep
--	movsq
--	and $7,%edx
--	jz 1f
--2:	movsb
--	dec %edx
--	jnz 2b
--1:	ret
 diff -urN a/src/string/x86_64/memmove.s b/src/string/x86_64/memmove.s
 --- a/src/string/x86_64/memmove.s	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/string/x86_64/memmove.s	2025-03-29 23:05:57.260560871 -0500
++++ b/src/string/x86_64/memmove.s	2025-04-06 09:41:32.730226121 -0500
 @@ -1,3 +1,25 @@
 +.hidden __memcpy_fwd
 +__memcpy_fwd:
@@ -1550,7 +1582,7 @@ diff -urN a/src/string/x86_64/memmove.s b/src/string/x86_64/memmove.s
  memmove:
 diff -urN a/src/thread/pthread_create.c b/src/thread/pthread_create.c
 --- a/src/thread/pthread_create.c	2024-02-29 20:07:33.000000000 -0600
-+++ b/src/thread/pthread_create.c	2025-03-29 23:05:57.287227392 -0500
++++ b/src/thread/pthread_create.c	2025-04-06 09:41:32.732024743 -0500
 @@ -68,6 +68,7 @@
  	}
  
