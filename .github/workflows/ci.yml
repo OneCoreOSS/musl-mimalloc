@@ -1,0 +1,35 @@
+name: Compile musl-mimalloc
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Configure musl-mimalloc
+        run: |
+          ./configure --with-malloc=external
+
+      - name: Compile musl-mimalloc
+        run: |
+          EXTRA_OBJ=$PWD/src/malloc/external/mimalloc.o make -j$(nproc --all)
+
+      - name: Install musl-mimalloc for artifact upload prep
+        run: |
+          DESTDIR=/tmp/libc make install
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: libc-artifact
+          path: /tmp/libc
