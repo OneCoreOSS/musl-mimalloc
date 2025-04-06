@@ -12,9 +12,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    container:
+      image: archlinux:latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm clang make base-devel
 
       - name: Configure musl-mimalloc
         run: |
