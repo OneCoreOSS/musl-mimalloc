@@ -18,11 +18,11 @@ jobs:
 
       - name: Configure musl-mimalloc
         run: |
-          ./configure --with-malloc=external
+          CC=clang ./configure --with-malloc=external
 
       - name: Compile musl-mimalloc
         run: |
-          EXTRA_OBJ=$PWD/src/malloc/external/mimalloc.o make -j1
+          CC=clang EXTRA_OBJ=$PWD/src/malloc/external/mimalloc.o make
 
       - name: Install musl-mimalloc for artifact upload prep
         run: |
