@@ -11,8 +11,10 @@ on:
 jobs:
   build-arch:
     runs-on: ubuntu-latest
+
     container:
       image: archlinux:latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,34 +39,5 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: libc-arch-artifact
-          path: /tmp/libc
-
-  build-ubuntu:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang make build-essential
-
-      - name: Configure musl-mimalloc
-        run: |
-          CC=clang ./configure --with-malloc=external
-
-      - name: Compile musl-mimalloc
-        run: |
-          CC=clang EXTRA_OBJ=$PWD/src/malloc/external/mimalloc.o make
-
-      - name: Install musl-mimalloc for artifact upload prep
-        run: |
-          DESTDIR=/tmp/libc make install
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: libc-ubuntu-artifact
+          name: libc-artifact
           path: /tmp/libc
