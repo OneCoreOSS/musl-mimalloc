@@ -22,7 +22,7 @@ jobs:
 
       - name: Compile musl-mimalloc
         run: |
-          EXTRA_OBJ=$PWD/src/malloc/external/mimalloc.o make -j$(nproc --all)
+          EXTRA_OBJ=$PWD/src/malloc/external/mimalloc.o make -j2
 
       - name: Install musl-mimalloc for artifact upload prep
         run: |
