@@ -12,8 +12,6 @@ terms of the MIT license. A copy of the license can be found in the file
 #include <stdio.h>      // stdin/stdout
 #include <stdlib.h>     // abort
 
-
-
 static long mi_max_error_count   = 16; // stop outputting errors after this (use < 0 for no limit)
 static long mi_max_warning_count = 16; // stop outputting warnings after this (use < 0 for no limit)
 

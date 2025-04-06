@@ -1039,14 +1039,20 @@ static inline size_t mi_bsr(size_t x) {
 
 mi_decl_internal size_t _mi_popcount_generic(size_t x);
 
+
 static inline size_t mi_popcount(size_t x) {
   if (x<=1) return x;
   if (x==SIZE_MAX) return MI_SIZE_BITS;
   #if defined(__GNUC__)
     #if (SIZE_MAX == ULONG_MAX)
-      return __builtin_popcountl(x);
+      x -= (x >> 1) & 0x55555555;
+      x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+      return ((x + (x >> 4) & 0x0F0F0F0F) * 0x01010101) >> 24;
     #else
-      return __builtin_popcountll(x);
+      x -= (x >> 1) & 0x5555555555555555;
+      x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
+      x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0F;
+      return (x * 0x0101010101010101) >> 56;
     #endif
   #else
     return _mi_popcount_generic(x);
