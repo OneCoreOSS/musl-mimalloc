@@ -65,9 +65,14 @@ mi_prim_internal int _mi_prim_commit(void* addr, size_t size, bool* is_zero);
 // pre: needs_recommit != NULL
 mi_prim_internal int _mi_prim_decommit(void* addr, size_t size, bool* needs_recommit);
 
-// Reset memory. The range keeps being accessible but the content might be reset.
+// Reset memory. The range keeps being accessible but the content might be reset to zero at any moment.
 // Returns error code or 0 on success.
 mi_prim_internal int _mi_prim_reset(void* addr, size_t size);
+
+// Reuse memory. This is called for memory that is already committed but
+// may have been reset (`_mi_prim_reset`) or decommitted (`_mi_prim_decommit`) where `needs_recommit` was false.
+// Returns error code or 0 on success. On most platforms this is a no-op.
+mi_prim_internal int _mi_prim_reuse(void* addr, size_t size);
 
 // Protect memory. Returns error code or 0 on success.
 mi_prim_internal int _mi_prim_protect(void* addr, size_t size, bool protect);
@@ -214,19 +219,19 @@ static inline void mi_prim_tls_slot_set(size_t slot, void* value) mi_attr_noexce
 #elif _WIN32 && MI_WIN_USE_FIXED_TLS && !defined(MI_WIN_USE_FLS)
 
 // On windows we can store the thread-local heap at a fixed TLS slot to avoid
-// thread-local initialization checks in the fast path. This uses a fixed location
-// in the TCB though (last user-reserved slot by default) which may clash with other applications.
+// thread-local initialization checks in the fast path.
+// We allocate a user TLS slot at process initialization (see `windows/prim.c`)
+// and store the offset `_mi_win_tls_offset`.
 
-#define MI_HAS_TLS_SLOT      2              // 2 = we can reliably initialize the slot (saving a test on each malloc)
+#define MI_HAS_TLS_SLOT  1              // 2 = we can reliably initialize the slot (saving a test on each malloc)
+mi_decl_internal size_t _mi_win_tls_offset;
 
 #if MI_WIN_USE_FIXED_TLS > 1
 #define MI_TLS_SLOT     (MI_WIN_USE_FIXED_TLS)
 #elif MI_SIZE_SIZE == 4
-#define MI_TLS_SLOT     (0x710)             // Last user-reserved slot <https://en.wikipedia.org/wiki/Win32_Thread_Information_Block>
-// #define MI_TLS_SLOT  (0xF0C)             // Last TlsSlot (might clash with other app reserved slot)
++#define MI_TLS_SLOT     (0x0E10 + _mi_win_tls_offset)  // User TLS slots <https://en.wikipedia.org/wiki/Win32_Thread_Information_Block>
 #else
-#define MI_TLS_SLOT     (0x888)             // Last user-reserved slot <https://en.wikipedia.org/wiki/Win32_Thread_Information_Block>
-// #define MI_TLS_SLOT  (0x1678)            // Last TlsSlot (might clash with other app reserved slot)
+#define MI_TLS_SLOT     (0x1480 + _mi_win_tls_offset)  // User TLS slots <https://en.wikipedia.org/wiki/Win32_Thread_Information_Block>
 #endif
 
 static inline void* mi_prim_tls_slot(size_t slot) mi_attr_noexcept {
@@ -276,7 +281,7 @@ static inline void mi_prim_tls_slot_set(size_t slot, void* value) mi_attr_noexce
 
 // defined in `init.c`; do not use these directly
 #ifndef MI_LIBC_BUILD
-extern mi_decl_thread mi_heap_t* _mi_heap_default;  // default heap to allocate from
+extern mi_decl_hidden mi_decl_thread mi_heap_t* _mi_heap_default;  // default heap to allocate from
 #endif
 mi_prim_internal bool _mi_process_is_initialized;             // has mi_process_init been called?
 
@@ -413,7 +418,7 @@ static inline mi_heap_t* mi_prim_get_default_heap(void) {
 
 #elif defined(MI_TLS_PTHREAD)
 
-extern pthread_key_t _mi_heap_default_key;
+extern mi_decl_hidden pthread_key_t _mi_heap_default_key;
 static inline mi_heap_t* mi_prim_get_default_heap(void) {
   mi_heap_t* heap = (mi_unlikely(_mi_heap_default_key == (pthread_key_t)(-1)) ? _mi_heap_main_get() : (mi_heap_t*)pthread_getspecific(_mi_heap_default_key));
   return (mi_unlikely(heap == NULL) ? (mi_heap_t*)&_mi_heap_empty : heap);
