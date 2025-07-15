@@ -1,7 +1,7 @@
 #!/bin/sh
 
 MUSL_VER="1.2.5"
-MIMALLOC_VER="2.2.3"
+MIMALLOC_VER="2.2.4"
 
 echo ":: Downloading musl $MUSL_VER"
 curl -LOk "https://musl.libc.org/releases/musl-$MUSL_VER.tar.gz"
@@ -48,8 +48,6 @@ fi
 
 echo ":: Patching musl with patches/musl-$MUSL_VER-mimalloc-$MIMALLOC_VER.patch"
 ORIGINDIR="$PWD"
-cp -r "src/musl-$MUSL_VER" "src/a"
-cp -r "src/musl-$MUSL_VER" "src/b"
 cd "src/musl-$MUSL_VER"
 patch -p1 < "../../patches/musl-$MUSL_VER-mimalloc-$MIMALLOC_VER.patch"
 if [ $? -ne 0 ]; then
