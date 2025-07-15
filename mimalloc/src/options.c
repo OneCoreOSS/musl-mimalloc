@@ -352,7 +352,7 @@ static void mi_out_buf_flush(mi_output_fun* out, bool no_more_buf, void* arg) {
   if (count>MI_MAX_DELAY_OUTPUT) count = MI_MAX_DELAY_OUTPUT;
   out_buf[count] = 0;
   out(out_buf,arg);
-  if (!no_more_buf) {
+  if (mi_option_is_enabled(mi_option_verbose) && !no_more_buf) {
     out_buf[count] = '\n'; // if continue with the buffer, insert a newline
   }
 }
